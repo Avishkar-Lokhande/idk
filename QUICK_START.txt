@@ -1,0 +1,76 @@
+🚀 QUICK START GUIDE - Vendor Grading System
+
+STEP 1: Open Terminal/Command Prompt
+================================
+Navigate to your project folder:
+cd C:\python prac\impromt stuff
+
+
+STEP 2: Run the Streamlit App
+============================
+streamlit run app.py
+
+Or if that doesn't work, use:
+python -m streamlit run app.py
+
+
+STEP 3: Access the App
+====================
+The app will automatically open in your default browser at:
+http://localhost:8501
+
+(If it doesn't open, copy/paste the URL manually into your browser)
+
+
+STEP 4: Try It Out!
+================
+1. Pick a vendor from "Load Vendor Preset" dropdown (sidebar)
+   - Or enter custom vendor info
+   
+2. Drag sliders to rate performance (1-10):
+   - Accuracy, Crisis Response, Cost, Credit Facility
+   
+3. Rate Resilience components:
+   - Priority Access, Exception Success, Response Agility
+   
+4. Click "🎯 Calculate Final Grade"
+   
+5. Review results:
+   - Grade (A/B/C/D-F)
+   - Recommended action
+   - Score breakdown
+   - Performance analysis
+
+6. Download CSV if needed
+
+
+FILES IN THIS PROJECT
+====================
+app.py              → Main Streamlit application
+config.py          → Presets, weights, grade settings
+utils.py           → Calculation & export functions
+requirements.txt   → Python dependencies
+README.md          → Full documentation
+
+
+CUSTOMIZE THE SYSTEM
+====================
+Add more vendor presets:
+  → Edit config.py, VENDOR_PRESETS section
+
+Add more lanes/routes:
+  → Edit config.py, LANE_OPTIONS section
+
+Change scoring weights:
+  → Edit config.py, SCORING_WEIGHTS section
+  (Make sure all weights sum to 1.0)
+
+
+STOP THE APP
+============
+Press Ctrl + C in the terminal running the app
+
+
+NEED HELP?
+=========
+Check README.md for full documentation and troubleshooting
