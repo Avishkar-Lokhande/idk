@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import io
-import json
 from datetime import datetime
 from config import (
     VENDOR_PRESETS, TIER_OPTIONS, LANE_OPTIONS, SCORING_WEIGHTS,
@@ -26,6 +24,14 @@ if "calculation_done" not in st.session_state:
     st.session_state.calculation_done = False
 if "results" not in st.session_state:
     st.session_state.results = {}
+if "custom_weights" not in st.session_state:
+    st.session_state.custom_weights = {
+        "accuracy": int(SCORING_WEIGHTS["Accuracy"] * 100),
+        "crisis": int(SCORING_WEIGHTS["Crisis Response"] * 100),
+        "resilience": int(SCORING_WEIGHTS["Resilience/RTC"] * 100),
+        "cost": int(SCORING_WEIGHTS["Cost"] * 100),
+        "credit": int(SCORING_WEIGHTS["Credit Facility"] * 100),
+    }
 
 # --- Custom CSS (Dark Mode Compatible) ---
 st.markdown("""
@@ -159,6 +165,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+runtime_weights = {
+    "accuracy": st.session_state.custom_weights["accuracy"] / 100,
+    "crisis": st.session_state.custom_weights["crisis"] / 100,
+    "resilience": st.session_state.custom_weights["resilience"] / 100,
+    "cost": st.session_state.custom_weights["cost"] / 100,
+    "credit": st.session_state.custom_weights["credit"] / 100,
+}
+weight_total = sum(st.session_state.custom_weights.values())
+weights_valid = weight_total == 100
+
 # --- SIDEBAR: Quick Presets & Settings ---
 with st.sidebar:
     st.markdown("### Quick Settings")
@@ -177,16 +193,67 @@ with st.sidebar:
         }
 
     st.divider()
+
+    st.markdown("### Custom Scoring Weights")
+    with st.expander("Adjust Category Weights (%)", expanded=False):
+        st.session_state.custom_weights["accuracy"] = st.slider(
+            "Accuracy %", 0, 100, st.session_state.custom_weights["accuracy"], 1
+        )
+        st.session_state.custom_weights["crisis"] = st.slider(
+            "Crisis Response %", 0, 100, st.session_state.custom_weights["crisis"], 1
+        )
+        st.session_state.custom_weights["resilience"] = st.slider(
+            "Resilience/RTC %", 0, 100, st.session_state.custom_weights["resilience"], 1
+        )
+        st.session_state.custom_weights["cost"] = st.slider(
+            "Cost %", 0, 100, st.session_state.custom_weights["cost"], 1
+        )
+        st.session_state.custom_weights["credit"] = st.slider(
+            "Credit Facility %", 0, 100, st.session_state.custom_weights["credit"], 1
+        )
+
+        weight_total = sum(st.session_state.custom_weights.values())
+        weights_valid = weight_total == 100
+        if weights_valid:
+            st.success("Weights total is 100%")
+        else:
+            st.warning(f"Weights must total 100%. Current total: {weight_total}%")
+
+        if st.button("Reset Default Weights", width="stretch"):
+            st.session_state.custom_weights = {
+                "accuracy": int(SCORING_WEIGHTS["Accuracy"] * 100),
+                "crisis": int(SCORING_WEIGHTS["Crisis Response"] * 100),
+                "resilience": int(SCORING_WEIGHTS["Resilience/RTC"] * 100),
+                "cost": int(SCORING_WEIGHTS["Cost"] * 100),
+                "credit": int(SCORING_WEIGHTS["Credit Facility"] * 100),
+            }
+            st.rerun()
+
+    runtime_weights = {
+        "accuracy": st.session_state.custom_weights["accuracy"] / 100,
+        "crisis": st.session_state.custom_weights["crisis"] / 100,
+        "resilience": st.session_state.custom_weights["resilience"] / 100,
+        "cost": st.session_state.custom_weights["cost"] / 100,
+        "credit": st.session_state.custom_weights["credit"] / 100,
+    }
     
     st.markdown("### Scoring Weights")
-    st.info("""
+    st.info(
+        """
     **Current Weights:**
-    - Accuracy: 30%
-    - Crisis Response: 30%
-    - Resilience/RTC: 20%
-    - Cost: 10%
-    - Credit Facility: 10%
-    """)
+    - Accuracy: {}%
+    - Crisis Response: {}%
+    - Resilience/RTC: {}%
+    - Cost: {}%
+    - Credit Facility: {}%
+    """.format(
+            st.session_state.custom_weights["accuracy"],
+            st.session_state.custom_weights["crisis"],
+            st.session_state.custom_weights["resilience"],
+            st.session_state.custom_weights["cost"],
+            st.session_state.custom_weights["credit"],
+        )
+    )
 
 st.divider()
 
@@ -248,8 +315,15 @@ with st.expander("View Scoring Formula & Reference", expanded=False):
     with col_formula:
         st.markdown("**Scoring Formula:**")
         st.latex(r"""
-        Total\ Score = (A \times 0.30) + (B \times 0.30) + (C \times 0.20) + (D \times 0.10) + (E \times 0.10)
+        Total\ Score = (A \times w_A) + (B \times w_B) + (C \times w_C) + (D \times w_D) + (E \times w_E)
         """)
+        st.caption(
+            f"wA={runtime_weights['accuracy']:.2f}, "
+            f"wB={runtime_weights['crisis']:.2f}, "
+            f"wC={runtime_weights['resilience']:.2f}, "
+            f"wD={runtime_weights['cost']:.2f}, "
+            f"wE={runtime_weights['credit']:.2f}"
+        )
         
     with col_reference:
         st.markdown("**Grade Mapping:**")
@@ -267,20 +341,20 @@ st.markdown("**Rate each category (1–10):**")
 col_score1, col_score2 = st.columns(2)
 
 with col_score1:
-    st.markdown("**A. Accuracy** *(Weight: 30%)*")
+    st.markdown(f"**A. Accuracy** *(Weight: {st.session_state.custom_weights['accuracy']}%)*")
     st.caption("On-time delivery, compliance, order accuracy")
     accuracy = st.slider("Accuracy Score", 1, 10, 7, key="accuracy", help="How accurate & reliable is this vendor?")
     
-    st.markdown("**B. Crisis Response** *(Weight: 30%)*")
+    st.markdown(f"**B. Crisis Response** *(Weight: {st.session_state.custom_weights['crisis']}%)*")
     st.caption("Problem-solving speed, emergency handling")
     crisis = st.slider("Crisis Response Score", 1, 10, 7, key="crisis", help="How do they handle urgent issues?")
     
-    st.markdown("**D. Cost** *(Weight: 10%)*")
+    st.markdown(f"**D. Cost** *(Weight: {st.session_state.custom_weights['cost']}%)*")
     st.caption("Pricing competitiveness")
     cost = st.slider("Cost Score (1–10)", 1, 10, cost_score, key="cost", help="Competitive pricing?")
 
 with col_score2:
-    st.markdown("**E. Credit Availing Facility** *(Weight: 10%)*")
+    st.markdown(f"**E. Credit Availing Facility** *(Weight: {st.session_state.custom_weights['credit']}%)*")
     st.caption("Payment terms & flexibility")
     credit = st.slider("Credit Score (1–10)", 1, 10, 7, key="credit", help="Flexible payment terms?")
 
@@ -290,7 +364,7 @@ st.divider()
 # SECTION 3: RESILIENCE / RTC SUB-FORMULA
 # ============================================================
 st.markdown('<div class="section-header">Resilience / RTC Assessment</div>', unsafe_allow_html=True)
-st.caption("*(Weight: 20% in Final Score)*")
+st.caption(f"*(Weight: {st.session_state.custom_weights['resilience']}% in Final Score)*")
 
 with st.expander("View Resilience Calculation", expanded=False):
     st.latex(r"""
@@ -351,14 +425,20 @@ st.divider()
 col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
 
 with col_btn1:
-    if st.button("Calculate Final Grade & Recommendation", use_container_width="auto", type="primary"):
+    if st.button("Calculate Final Grade & Recommendation", width="stretch", type="primary", disabled=not weights_valid):
         if not vendor_name.strip():
             st.error("Please enter a vendor name.")
         else:
             st.session_state.calculation_done = True
             
             # Calculate final score
-            final_score = calculate_final_score(accuracy, crisis, resilience_score, cost, credit)
+            final_score = (
+                (accuracy * runtime_weights["accuracy"]) +
+                (crisis * runtime_weights["crisis"]) +
+                (resilience_score * runtime_weights["resilience"]) +
+                (cost * runtime_weights["cost"]) +
+                (credit * runtime_weights["credit"])
+            )
             grade, status, action = get_grade_and_action(final_score)
             grade_class = get_grade_css_class(grade)
             
@@ -377,12 +457,31 @@ with col_btn1:
                 "resilience": resilience_score,
                 "cost": cost,
                 "credit": credit,
-                "breakdown": create_breakdown_dataframe(accuracy, crisis, resilience_score, cost, credit),
+                "grade_class": grade_class,
+                "weights": st.session_state.custom_weights.copy(),
+                "breakdown": pd.DataFrame({
+                    "Category": ["A. Accuracy", "B. Crisis Response", "C. Resilience/RTC", "D. Cost", "E. Credit Facility"],
+                    "Rating (1–10)": [accuracy, crisis, round(resilience_score, 2), cost, credit],
+                    "Weight": [
+                        f"{st.session_state.custom_weights['accuracy']}%",
+                        f"{st.session_state.custom_weights['crisis']}%",
+                        f"{st.session_state.custom_weights['resilience']}%",
+                        f"{st.session_state.custom_weights['cost']}%",
+                        f"{st.session_state.custom_weights['credit']}%",
+                    ],
+                    "Weighted Score": [
+                        round(accuracy * runtime_weights["accuracy"], 2),
+                        round(crisis * runtime_weights["crisis"], 2),
+                        round(resilience_score * runtime_weights["resilience"], 2),
+                        round(cost * runtime_weights["cost"], 2),
+                        round(credit * runtime_weights["credit"], 2),
+                    ]
+                }),
                 "resilience_breakdown": create_resilience_breakdown(priority_access, exception_success, response_agility)
             }
 
 with col_btn2:
-    if st.button("Reset", use_container_width="auto"):
+    if st.button("Reset", width="stretch"):
         st.session_state.calculation_done = False
         st.session_state.results = {}
         st.rerun()
@@ -412,7 +511,7 @@ if st.session_state.calculation_done and st.session_state.results:
     
     # Grade Box
     st.markdown(
-        f"""<div class="grade-box {grade_class}">
+        f"""<div class="grade-box {results['grade_class']}">
         Grade: {results['grade']} — {results['status']}
         </div>""",
         unsafe_allow_html=True
@@ -434,7 +533,7 @@ if st.session_state.calculation_done and st.session_state.results:
     # Full Calculation
     st.markdown("### Detailed Score Breakdown")
     st.latex(
-        rf"Total = ({accuracy} \times 0.30) + ({crisis} \times 0.30) + ({resilience_score:.1f} \times 0.20) + ({cost} \times 0.10) + ({credit} \times 0.10) = {results['final_score']:.2f}"
+        rf"Total = ({results['accuracy']} \times {runtime_weights['accuracy']:.2f}) + ({results['crisis']} \times {runtime_weights['crisis']:.2f}) + ({results['resilience']:.1f} \times {runtime_weights['resilience']:.2f}) + ({results['cost']} \times {runtime_weights['cost']:.2f}) + ({results['credit']} \times {runtime_weights['credit']:.2f}) = {results['final_score']:.2f}"
     )
     
     # Breakdown Table
